@@ -1,0 +1,189 @@
+<br />
+<br />
+<div class="page-header" id="page-header">
+    <div class="pull-left">
+        <h2 class="page-title">{{pageTitle}}</h2>
+        <h5>(.doc/.docx/.pdf/.odt/.html/.rtf/.txt files &#60;= 2MB)</h5>
+    </div>
+    <div class="clearfix"></div>
+</div>
+<br />
+<div class="row">
+    <div class="col-md-12">
+        <form name="editForm" role="form" novalidate (ngSubmit)="startUpload()" class="form-horizontal row-border"
+            #editForm="ngForm">
+            <div class="panel panel-default">
+                <div class="panel-body">
+                    <div class="row" *ngIf="progress > 0 && progress < 100">
+                        <div class="col-md-12">
+                            <div class="alert alert-warning">
+                                <strong>Warning!</strong> File upload in progress. Please do not close this window.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" *ngIf="progress == 100">
+                        <div class="col-md-12">
+                            <div class="alert alert-success">
+                                <strong>Success!</strong> Bulk upload completed. You can check the status of CV parsed
+                                <a ui-sref="candidate-bulk-upload-report">here</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" *ngIf="progress > 0 && progress < 100">
+                        <div class="col-md-12">
+                            <mat-progress-spinner [diameter]="40" class="example-margin" color="primary"
+                                mode="indeterminate">
+                            </mat-progress-spinner>
+                        </div>
+                        <br />
+                        <div class="col-md-12">
+                            <mat-progress-bar mode="determinate" [value]="progress"></mat-progress-bar>
+                        </div>
+                    </div>
+                    <br />
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label>Team</label><br>
+                            <!-- <input class="form-control input-sm" /> -->
+                            <div>
+                                <mat-form-field>
+                                    <input class="form-control input-sm" [formControl]="autoCompleteControl" type="text"
+                                        placeholder="Pick one team" aria-label="Number" matInput
+                                        [matAutocomplete]="auto">
+                                    <mat-autocomplete autoActiveFirstOption #auto="matAutocomplete">
+                                        <mat-option *ngFor="let item of teamAutoComplete$ | async; let index = index"
+                                            (onSelectionChange)="selectTeam(item)" [value]="item.name">
+                                            {{ item.name | titlecase}}
+                                        </mat-option>
+                                    </mat-autocomplete>
+                                </mat-form-field>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Skills</label>
+                            <mat-form-field>
+                                <mat-chip-list #skillList aria-label="Skill selection">
+                                    <mat-chip *ngFor="let skill of skills" [selectable]=true [removable]=true
+                                        (removed)="removeSkill(skill)">
+                                        {{skill}}
+                                        <mat-icon matChipRemove>cancel</mat-icon>
+                                    </mat-chip>
+                                    <input placeholder="E.g java, j2ee, html ..." [matChipInputFor]="skillList"
+                                        [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+                                        [matChipInputAddOnBlur]=true (matChipInputTokenEnd)="addSkill($event)">
+                                </mat-chip-list>
+                            </mat-form-field>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Tags</label>
+                            <mat-form-field>
+                                <mat-chip-list #tagList aria-label="Tag selection">
+                                    <mat-chip *ngFor="let tag of tags" [selectable]=true [removable]=true
+                                        (removed)="removeTag(tag)">
+                                        {{tag}}
+                                        <mat-icon matChipRemove>cancel</mat-icon>
+                                    </mat-chip>
+                                    <input placeholder="E.g contract, permanent, remote ..." [matChipInputFor]="tagList"
+                                        [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+                                        [matChipInputAddOnBlur]=true (matChipInputTokenEnd)="addTag($event)">
+                                </mat-chip-list>
+                            </mat-form-field>
+                        </div>
+                    </div>
+                    <br />
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label>Location</label>
+                            <input class="form-control input-sm" ngx-google-places-autocomplete
+                                (onAddressChange)="handleAddressChange($event)" />
+                            <br />
+                        </div>
+                        <div class="col-md-4">
+                            <label>Options</label><br />
+                            <div class="col-md-12">
+                                <mat-slide-toggle [checked]="ignoreDuplicates" (change)="setOptionValue('ID',$event )"
+                                    color="primary">Ignore Duplicate Files!
+                                </mat-slide-toggle>
+                                &nbsp;&nbsp;&nbsp;
+                                <mat-slide-toggle [checked]="processNestedFolders"
+                                    (change)="setOptionValue('PNF',$event )" color="primary">Process Nested Folders!
+                                </mat-slide-toggle>
+                            </div>
+                            <!-- <div class="col-md-6">
+                                <mat-slide-toggle [checked]="processNestedFolders" (change)="setValue(i,$event )"
+                                    color="primary">Process Nested Folders!
+                                </mat-slide-toggle>
+                            </div> -->
+                        </div>
+                        <div class="col-md-4">
+                            <label>Select Folder</label><br />
+                            <button type="button" class="btn btn-info" (click)="openDialog()">
+                                <span>Select Folder To Import</span>
+                            </button>{{selectedDirectory}}
+                        </div>
+                        <div *ngIf="workAssignment.id" class="col-md-4">
+                            <label>Job</label>
+                            <input class="form-control input-sm" readonly
+                                value="{{workAssignment.jobTitle}} ({{workAssignment.jobCode}})" />
+                            <br />
+                        </div>
+                    </div>
+                    <!-- <div class="row">
+                        <div class="col-md-4">
+                            <b>Options</b>
+                        </div>
+                    </div>
+                    <br />
+                    <div class="row">
+                        <div class="col-md-3">
+                            <mat-slide-toggle [checked]="ignoreDuplicates" (change)="setValue(i,$event )"
+                                color="primary">Ignore Duplicate Files!
+                            </mat-slide-toggle>
+                        </div>
+                        <div class="col-md-3">
+                            <mat-slide-toggle [checked]="processNestedFolders" (change)="setValue(i,$event )"
+                                color="primary">Process Nested Folders!
+                            </mat-slide-toggle>
+                        </div>
+                    </div> -->
+                    <hr />
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <br>
+                            <b>Total Selected</b><br /><br />
+                            <h1 class="">
+                                {{total}}
+                            </h1>
+                            <br>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <br>
+                            <b>Scheduled</b><br /><br />
+                            <h1 class="">
+                                {{total - invalidTotal}}
+                            </h1>
+                            <br>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <br>
+                            <b>Uploaded&nbsp;(Successful/Failed)</b><br /><br />
+                            <h1 class="">
+                                {{uploaded}}/{{uploadErrorCount}}
+                            </h1>
+                            <br>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 text-center">
+                            <button type="submit" class="btn btn-primary"
+                                [disabled]="editForm.form.invalid || (progress > 0 && progress < 100)">
+                                <span>Start Upload</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+        </form>
+    </div>
+</div>

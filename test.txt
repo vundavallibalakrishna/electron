@@ -1,0 +1,165 @@
+applyFilter(filter): void {
+    /*$([document.documentElement, document.body]).animate({
+        scrollTop: $("#scrollOnClick").offset().top - 80
+    }, 500);*/
+    this.filterBy = filter;
+  }
+
+  show(file): boolean {
+    switch (this.filterBy) {
+      case "all":
+        return true;
+      case "invalid":
+        return !file.allowedExtension || file.limitExceeded;
+      case 'scheduled':
+        return file.allowedExtension;
+      case 'uploadsuccess':
+        return file.progress >= 100;
+      case 'uploadfailed':
+        return file.allowedExtension && file.limitExceeded;
+      case 'processsuccess':
+        return file.completed && file.candidateMappingId != null;
+      case 'processfailed':
+        return file.completed && file.candidateMappingId == null;
+    }
+    return true;
+  }
+
+  uploadFiles(): void {
+    var count = 0;
+    for (var i = 0; i < this.flowFiles.length; i++) {
+      var flowFile = this.flowFiles[i];
+      if (!flowFile.completed && !flowFile.limitExceeded && flowFile.allowedExtension)
+        count++
+    }
+    if (count > 0) {
+      this.showSuccess = this.uploadCompleted = false;
+      this.totalCount = this.total - this.invalidTotal;
+      var skills = this.skills ? this.skills.map((a) { return a.text; }) : [];
+      var tags = this.tags ? this.tags.map((a) { return a.text; }) : [];
+      const startTime = (new Date()).getTime();
+      var team = this.team ? this.team[0] : null;
+      CandidateBulkUpload.generateBatch({ "count": count, "type": "local" }).$promise.then((candidateBulkUploadBatch) {
+        var validFiles = this.flowFiles.filter((flowFile) {
+          return !flowFile.completed && !flowFile.limitExceeded && flowFile.allowedExtension
+        });
+        awsS3Service.generatePreSignedURLSForPut(validFiles, onGeneratedURLS, onUploadError);
+        var uploadPromises = [];
+        onGeneratedURLS(resp) {
+          for (var f = 0; f < validFiles.length; f++) {
+            var deferred = $q.defer();
+            (
+              (flowFile, responseFile, deferred) {
+                flowFile.uploadedUrl = responseFile.preSignedUrl.split('?')[0];
+                var s3Upload = Upload.http({
+                  url: responseFile.preSignedUrl,
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': responseFile.fileType
+                  },
+                  data: flowFile.file
+                });
+                s3Upload.then((response) {
+                  this.uploaded = this.uploaded + 1;
+                  deferred.resolve(flowFile);
+                }, (response) {
+                  flowFile.failedToUpload = true;
+                  deferred.resolve(null);
+                });
+                s3Upload.progress((evt) {
+                  flowFile.progress = Math.min(100, parseInt(100.0 * evt.loaded / evt.total));
+                });
+              }
+            )(validFiles[f], resp.bulkFileList[f], deferred);
+            uploadPromises.push(deferred.promise);
+          }
+
+          $q.all(uploadPromises).then((allPromisesData) {
+            var bulkUploadList = allPromisesData.filter((flowFile) { return flowFile != null }).map((flowFile) {
+              return {
+                batchId: candidateBulkUploadBatch.id,
+                resumeURL: flowFile.uploadedUrl,
+                resumeFileName: flowFile.name,
+                skills: skills,
+                tags: tags,
+                locations: this.currentLocations,
+                team: team,
+                mapToJobId: workAssignment ? workAssignment.jobId : null,
+                candidateBulkUploadBatch: candidateBulkUploadBatch
+              }
+            });
+            JobCandidateInteractionSearch.sendResumeToCVParser({ bulkUploadList: bulkUploadList });
+            allPromisesData.forEach((flowFile) {
+              flowFile.completed = true;
+            })
+            this.resumeCompleted();
+          })
+        }
+      });
+    } else {
+      // pinesNotifications.notify({
+      //   title: 'Import Candidates',
+      //   text: 'No files to upload',
+      //   type: 'error'
+      // });
+    }
+  }
+
+  onUploadError(flowFile): void {
+    this.resumeCompleted();
+  }
+
+  resumeCompleted(): void {
+    this.showSuccess = this.uploadCompleted = true;
+    this.resetFlow();
+  }
+
+  formatLocation(location): void {
+    return LocationUtil.formatLocation(location);
+  }
+
+  resetFlow(): void {
+    this.reset = false;
+  }
+
+  placeChanged(place): void {
+    $timeout(() {
+      this.currentLocations.push(LocationUtil.placeToLocation(place, this.chosenPlace));
+      this.chosenPlace = "";
+    }, 100);
+  }
+
+  removeLocation(index): void {
+    this.currentLocations.splice(index, 1);
+  }
+
+  loadSkillsSuggetions(query): void {
+    return JobSearch.getSkillsSuggetions({ skill: query }).$promise;
+  }
+
+  getTotalFiles(): any {
+    if (this.flowFiles)
+      this.total = this.flowFiles.length;
+    return this.total;
+  }
+
+  getInvalidTotalFiles(): any {
+    this.invalidTotal = 0;
+    if (this.flowFiles)
+      for (var i = 0; i < this.flowFiles.length; i++) {
+        var flowFile = this.flowFiles[i];
+        if (flowFile.limitExceeded || !flowFile.allowedExtension)
+          this.invalidTotal = this.invalidTotal + 1;
+      }
+    return this.invalidTotal;
+  }
+
+  formatSizeUnits(bytes): void {
+    if (bytes >= 1073741824) { bytes = (bytes / 1073741824).toFixed(2) + ' GB'; }
+    else if (bytes >= 1048576) { bytes = (bytes / 1048576).toFixed(2) + ' MB'; }
+    else if (bytes >= 1024) { bytes = (bytes / 1024).toFixed(2) + ' KB'; }
+    else if (bytes > 1) { bytes = bytes + ' bytes'; }
+    else if (bytes == 1) { bytes = bytes + ' byte'; }
+    else { bytes = '0 byte'; }
+    return bytes;
+  }

@@ -1,0 +1,13 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="#">Ignite <span class="material-icons">local_fire_department</span></a>
+    <div *ngIf="isAuthenticated()" class="navbar" id="navbarText">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <a class="nav-link active" href="home">Switch Workspace</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" href="javascript:;" (click)="logout()">Log Out</a>
+            </li>
+        </ul>
+    </div>
+</nav>

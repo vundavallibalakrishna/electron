@@ -1,0 +1,57 @@
+<br /><br /><br />
+<div *ngIf="done && !isAuthenticated()" class="panel-body no-border">
+  <div class="row">
+    <div class="col-md-12 text-center">
+      <p class="h1" style="margin-top: 12px;"> Welcome to Ignite by Wisestep</p>
+      <br><br><br><span></span>
+    </div>
+    <div class="col-md-12 text-center h4">
+      Upload CVs to wisestep platform
+    </div>
+    <div class="col-md-12 text-center small">
+      (doc, pdf, txt, odt, docx)
+    </div>
+  </div>
+  <br>
+  <br>
+  <div class="row">
+    <div class="col-md-12">
+      <div class="row">
+        <div class="col-md-12 text-center">
+          <button class="btn btn-primary  btn-lg" (click)="openLoginWindow()">
+            Login
+          </button>
+        </div>
+      </div>
+    </div>
+    <br>
+  </div>
+</div>
+<div *ngIf="done && isAuthenticated()">
+  <div *ngIf="currentUserWorkspaces.length > 0">
+    <div class="panel">
+      <div class="panel-body">
+        <div class="row">
+          <div class="col-md-12 ">
+            <h2>My Workspace(s)</h2>
+          </div>
+        </div>
+        <br><br>
+        <div *ngFor="let workspace of currentUserWorkspaces; let i = index">
+          <div class="row" *ngIf="workspace.owns || workspace.accepted">
+            <div class="col-md-6">
+              <div>
+                <h4>{{workspace.name}} (company)</h4>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <a (click)="selectWorkspace(workspace)" class="btn btn-primary">Select Workspace
+              </a>
+            </div>
+          </div>
+          <hr *ngIf="workspace.owns || workspace.accepted" />
+          <br />
+        </div>
+      </div>
+    </div>
+  </div>
